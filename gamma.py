@@ -29,70 +29,84 @@ from sklearn.model_selection import train_test_split
 
 
 # Groups coordinates of Waldo with the image
-# STATUS: INCOMPLETE
-def coord_Data_Appointing(dataset, coord_file, w):
+# STATUS: COMPLETE?
+def coord_Data_Appointing(dataset, coord_file, w, binary, hasFile):
     # Opens the coordinates file
-    with open(coord_file, 'r') as f:
-        coords = json.load(f)
-
+    if(hasFile == True):
+        with open(coord_file, 'r') as f:
+            coords = json.load(f)
     imgData_pairs = []
-
+    imgDirect = os.path.dirname(dataset[0][0])
     # Retrieves the image name and the coordinates
     # Appends them together and preps them for coord appointing
     for img in dataset:
         imgPath = img[0]
         imgName = os.path.basename(imgPath)
-        print(f"imgName: {imgName}")
-        pattern = r'\d+'
-        digits = re.findall(pattern, imgName)
-        if len(digits[0]) == 1:
-            digits[0] = '0' + digits[0]
-        imgData_pairs.append((imgName, digits)) 
+        if(imgName != '.DS_Store'):
+            pattern = r'\d+'
+            digits = re.findall(pattern, imgName)
+            if len(digits[0]) == 1:
+                digits[0] = '0' + digits[0]
+            imgData_pairs.append((imgName, digits)) 
 
     imgData_pairs = sorted(imgData_pairs, key=lambda x: x[1])
-    print(dataset[0][0])
 
     # Coordinates are assigned to the image
     for img in imgData_pairs:
         imgName = img[0]
+        # Get coords
+        xPos = -1
+        yPos = -1
+        if hasFile == True:
+            for item in coords[str(int(w))][str(int(img[1][0]))]:
+                if(item["x"] == (img[1][1]) and item["y"] == (img[1][2])):
+                    xPos = item["x_px"]
+                    yPos = item["y_px"]
 
-
+                    break
+        xyCoords = [xPos, yPos]
+        dataIndx = dataset.index((imgDirect + '/' + imgName, binary))
+        temp = list(dataset[dataIndx])
+        temp.append(xyCoords)
+        dataset[dataIndx] = tuple(temp)        
 
 # Splits the data into training, validation, and testing sets
-# STATUS: INCOMPLETE
+# STATUS: COMPLETE?
 def data_splitting(dir1, dir2, w):
     # Each directory (waldo, not waldo) are given a binary classification
     sec1 = [(os.path.join(dir1, f), 0) for f in os.listdir(dir1)]
     sec2 = [(os.path.join(dir2, f), 1) for f in os.listdir(dir2)]
 
     coordsFile = os.path.join('Hey-Waldo-master', 'data.json')
-    coord_Data_Appointing(sec1, coordsFile, w)
+    print(type(sec1))
+    coord_Data_Appointing(sec1, coordsFile, w, 0, True)
+    coord_Data_Appointing(sec2, coordsFile, w, 1, False)
     
     # Combines both sets and splits them into training, validation, and testing sets
     # 70% training, 20% validation, 10% testing
     dataset = sec1 + sec2
     train, test = train_test_split(dataset, test_size=0.3, random_state=42)
-    valid, test  =train_test_split(test, test_size=0.33, random_state=42)
+    valid, test = train_test_split(test, test_size=0.33, random_state=42)
     return train, valid, test
 
 
 # Adjusts the data to the appropriate size
 # STATUS: INCOMPLETE
-def dataAdjusting(imgDataset, coordinates_File):
-    with open(coordinates_File, 'r') as f:
-        coordinates = f.load(f)
+def dataAdjusting(imgDataset):
     imgs = []
-    labels = []
     coords = []
-    for imgPath, l in imgDataset:
-        img = cv2.imread(imgPath)
-        img = cv2.resize(img, (width, height))
-        #img = img / 255.0
-        imgs.append(img)
-        #img_coords = coords[width][i + 1][]
-
+    for imgPath in imgDataset:
+        if(os.path.basename(imgPath[0]) != '.DS_Store'):
+            img = cv2.imread(imgPath[0])
+            img = cv2.resize(img, (width, height))
+            img = img / 255.0
+            imgs.append(img)
+            coords.append(imgPath[2])
+        
     imgs = np.array(imgs)
-    return imgs, labels
+    coords = np.array(coords)
+
+    return imgs, coords
 
 def predictions(imgPath, width, height, model):
     image = image_utils.load_img(imgPath, target_size=(width, height))
@@ -111,8 +125,8 @@ def predictions(imgPath, width, height, model):
 
 # Combining the data and splitting into the appropriate sizes
 # STATUS: INCOMPLETE
-waldo_dir = os.path.join('Hey-Waldo-master', '64', 'waldo')
-not_waldo_dir = os.path.join('Hey-Waldo-master', '64', 'notwaldo')
+waldo_dir = os.path.join('Hey-Waldo-master', '64-copy', 'waldo')
+not_waldo_dir = os.path.join('Hey-Waldo-master', '64-copy', 'notwaldo')
 
 # Current step is in the works
 trainingSet, validSet, testingSet = data_splitting(waldo_dir, not_waldo_dir, 64)
@@ -136,6 +150,19 @@ print(f"Image Size: {imageSize}")
 
 xTrain, yTrain = dataAdjusting(trainingSet)
 xValid, yValid = dataAdjusting(validSet)
+print(f"xTrain: {xTrain.shape}")
+print(f"yTrain: {yTrain}")
+print(f"yTrain: {yValid}")
+
+#imgGen = ImageDataGenerator(
+#    rotation_range=20,
+#    zoom_range=0.15,
+#    width_shift_range=0.2,
+#    height_shift_range=0.2,
+#    shear_range=0.15,
+#    horizontal_flip=True,
+#    fill_mode="nearest")
+#imgGen.fit(xTrain)
 
 #######################################################################
 # CNN Model based from NVIDIA Code with modificiations
@@ -153,15 +180,17 @@ model.add(Dense(128, activation='relu'))
 model.add(Dense(2, activation='linear'))  # Two output neurons for the x and y coordinates
 
 model.compile(optimizer='adam', loss='mean_squared_error')
-
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 model.fit(xTrain, yTrain , validation_data=(xValid, yValid), 
           epochs=10, batch_size=4)
+
+#model.fit(imgGen.flow(xTrain, yTrain, batch_size=4), validation_data=(xValid, yValid),
+#            epochs=10)
+
 #######################################################################
 
 #######################################################################
 # TESTING
-# STATUS: INCOMPLETE
+# FOR DISPLAY PURPOSES
 for items in range(len(testingSet)):
     getImg = testingSet[items][0]
     print(f"===\n i = {items} \n===")
