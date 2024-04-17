@@ -22,12 +22,21 @@ def make_predictions(image_path, w, h):
     preds = model.predict(image)
     return preds
 
+
 # Gets image size
 imgPath = os.path.join('Hey-Waldo-master', '256', 'waldo', '1_1_1.jpg')
 img = Image.open(imgPath)
 width = img.width
 height = img.height
 imageSize = (width, height)
+print(f"First IMG: {imageSize}")
+
+imgPath = os.path.join('Hey-Waldo-master', 'original-images', 'test_img', '1.jpg')
+img = Image.open(imgPath)
+width = img.width
+height = img.height
+imageSize = (width, height)
+print(f"Second IMG: {imageSize}")
 
 xTrain = os.path.join('Hey-Waldo-master', '256')
 xValid = os.path.join('Hey-Waldo-master', 'original-images')
