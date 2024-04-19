@@ -58,33 +58,50 @@ def coord_Data_Appointing(dataset, coord_file, w, binary, hasFile):
         xPos = -1
         yPos = -1
         if hasFile == True:
+            # issue?
             for item in coords[str(int(w))][str(int(img[1][0]))]:
                 if(item["x"] == (img[1][1]) and item["y"] == (img[1][2])):
-                    xPos = item["x_px"]
-                    yPos = item["y_px"]
-
+                    xPos = item["x_px"] / 64
+                    yPos = item["y_px"] / 64
                     break
+
         xyCoords = [xPos, yPos]
         dataIndx = dataset.index((imgDirect + '/' + imgName, binary))
+        
         temp = list(dataset[dataIndx])
         temp.append(xyCoords)
         dataset[dataIndx] = tuple(temp)        
 
 # Splits the data into training, validation, and testing sets
 # STATUS: COMPLETE?
-def data_splitting(dir1, dir2, w):
+def data_splitting(dir1, dir1_1, dir1_2, dir2, w):
     # Each directory (waldo, not waldo) are given a binary classification
     sec1 = [(os.path.join(dir1, f), 0) for f in os.listdir(dir1)]
+    sec1_1 = [(os.path.join(dir1_1, f), 0) for f in os.listdir(dir1_1)]
+    sec1_2 = [(os.path.join(dir1_2, f), 0) for f in os.listdir(dir1_2)]
     sec2 = [(os.path.join(dir2, f), 1) for f in os.listdir(dir2)]
 
     coordsFile = os.path.join('Hey-Waldo-master', 'data.json')
     print(type(sec1))
     coord_Data_Appointing(sec1, coordsFile, w, 0, True)
+    # =============
+    # EXPERIMENTAL
+    coord_Data_Appointing(sec1_1, coordsFile, w, 0, True)
+    coord_Data_Appointing(sec1_2, coordsFile, w, 0, True)
+    # EXPERIMENTAL
+    # =============
     coord_Data_Appointing(sec2, coordsFile, w, 1, False)
     
     # Combines both sets and splits them into training, validation, and testing sets
     # 70% training, 20% validation, 10% testing
-    dataset = sec1 + sec2
+    #dataset = sec1 + sec1_1 + sec1_2 + sec2
+    container = []
+    for j in range(41):
+        container = container + sec1 + sec1_1 + sec1_2
+    print(len(container))
+    dataset = container + sec2
+    
+    #dataset = sec1 + sec2
     train, test = train_test_split(dataset, test_size=0.3, random_state=42)
     valid, test = train_test_split(test, test_size=0.33, random_state=42)
     return train, valid, test
@@ -92,19 +109,20 @@ def data_splitting(dir1, dir2, w):
 
 # Adjusts the data to the appropriate size
 # STATUS: INCOMPLETE
-def dataAdjusting(imgDataset):
+def dataAdjusting(imgDataset, width, height):
     imgs = []
     coords = []
     for imgPath in imgDataset:
         if(os.path.basename(imgPath[0]) != '.DS_Store'):
             img = cv2.imread(imgPath[0])
             img = cv2.resize(img, (width, height))
-            img = img / 255.0
+            img = img / (width - 1)
             imgs.append(img)
             coords.append(imgPath[2])
         
     imgs = np.array(imgs)
-    coords = np.array(coords)
+    #coords = (np.array(coords))/(width * height)
+    coords = (np.array(coords))
 
     return imgs, coords
 
@@ -125,11 +143,13 @@ def predictions(imgPath, width, height, model):
 
 # Combining the data and splitting into the appropriate sizes
 # STATUS: INCOMPLETE
-waldo_dir = os.path.join('Hey-Waldo-master', '64-copy', 'waldo')
+waldo_dir = os.path.join('Hey-Waldo-master', '64', 'waldo')
+waldo_bw_dir = os.path.join('Hey-Waldo-master', '64-bw', 'waldo')
+waldo_grey_dir = os.path.join('Hey-Waldo-master', '64-gray', 'waldo')
 not_waldo_dir = os.path.join('Hey-Waldo-master', '64-copy', 'notwaldo')
 
 # Current step is in the works
-trainingSet, validSet, testingSet = data_splitting(waldo_dir, not_waldo_dir, 64)
+trainingSet, validSet, testingSet = data_splitting(waldo_dir, waldo_bw_dir, waldo_grey_dir, not_waldo_dir, 64)
 
 print(f"Training Set: {len(trainingSet)}")
 print(f"Validation Set: {len(validSet)}")
@@ -148,11 +168,11 @@ height = img.height
 imageSize = (width, height)
 print(f"Image Size: {imageSize}")
 
-xTrain, yTrain = dataAdjusting(trainingSet)
-xValid, yValid = dataAdjusting(validSet)
+xTrain, yTrain = dataAdjusting(trainingSet, width, height)
+xValid, yValid = dataAdjusting(validSet, width, height)
 print(f"xTrain: {xTrain.shape}")
 print(f"yTrain: {yTrain}")
-print(f"yTrain: {yValid}")
+print(f"yValid: {yValid}")
 
 #imgGen = ImageDataGenerator(
 #    rotation_range=20,
@@ -166,7 +186,7 @@ print(f"yTrain: {yValid}")
 
 #######################################################################
 # CNN Model based from NVIDIA Code with modificiations
-# STATUS: DONE
+# STATUS: DONE?
 
 model = Sequential()
 model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(width, height, 3)))
@@ -185,21 +205,23 @@ model.fit(xTrain, yTrain , validation_data=(xValid, yValid),
 
 #model.fit(imgGen.flow(xTrain, yTrain, batch_size=4), validation_data=(xValid, yValid),
 #            epochs=10)
-
 #######################################################################
-
 #######################################################################
 # TESTING
 # FOR DISPLAY PURPOSES
-for items in range(len(testingSet)):
-    getImg = testingSet[items][0]
-    print(f"===\n i = {items} \n===")
-    print(f"Image: {getImg} and Number: {testingSet[items][1]}")
-    imgResults = predictions(getImg, width, height, model)
-    print(f"Results: {imgResults}")
+#for items in range(len(testingSet)):
+#    getImg = testingSet[items][0]
+#    print(f"===\n i = {items} \n===")
+#    print(f"Image: {getImg} and Number: {testingSet[items][1]}")
+#    imgResults = predictions(getImg, width, height, model)
+#    print(f"Results: {imgResults}")
 
 print("\n\n=== === ===\nNOW TESTING WITH WALDO")
-imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '19_0_7.jpg')
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '18_15_7.jpg')
 imgWALDORes = predictions(imgWPATH, width, height, model)
 print(f"Waldo Results: {imgWALDORes}")
 
+print("\n\n=== === ===\nNOW TESTING WITH WALDO")
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '11_6_11.jpg')
+imgWALDORes = predictions(imgWPATH, width, height, model)
+print(f"Waldo Results: {imgWALDORes}")
