@@ -98,7 +98,7 @@ def data_splitting(dir1, dir1_1, dir1_2, dir2, w):
     container = []
     for j in range(41):
         container = container + sec1 + sec1_1 + sec1_2
-    print(len(container))
+
     dataset = container + sec2
     
     #dataset = sec1 + sec2
@@ -116,10 +116,12 @@ def dataAdjusting(imgDataset, width, height):
         if(os.path.basename(imgPath[0]) != '.DS_Store'):
             img = cv2.imread(imgPath[0])
             img = cv2.resize(img, (width, height))
-            img = img / (width - 1)
+            img = img / 255.0
             imgs.append(img)
-            coords.append(imgPath[2])
-        
+
+            normCoords = [(imgPath[2][0])/width, (imgPath[2][1])/height]
+            coords.append(normCoords)
+
     imgs = np.array(imgs)
     #coords = (np.array(coords))/(width * height)
     coords = (np.array(coords))
@@ -161,18 +163,14 @@ print(f"Testing Set: {len(testingSet)}")
 # STATUS: INCOMPLETE
 imgPath = os.path.join('Hey-Waldo-master', '64', 'waldo', '1_1_1.jpg')
 imgPath = testingSet[0][0]
-print(f"imgPath: {imgPath}")
+
 img = Image.open(imgPath)
 width = img.width
 height = img.height
 imageSize = (width, height)
-print(f"Image Size: {imageSize}")
 
 xTrain, yTrain = dataAdjusting(trainingSet, width, height)
 xValid, yValid = dataAdjusting(validSet, width, height)
-print(f"xTrain: {xTrain.shape}")
-print(f"yTrain: {yTrain}")
-print(f"yValid: {yValid}")
 
 #imgGen = ImageDataGenerator(
 #    rotation_range=20,
