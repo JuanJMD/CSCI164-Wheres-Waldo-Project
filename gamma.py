@@ -5,6 +5,7 @@ import random
 import re
 import numpy as np
 from PIL import Image
+from tensorflow import keras
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import regularizers
@@ -18,6 +19,7 @@ import matplotlib.image as mpimg
 from tensorflow.keras.preprocessing import image as image_utils
 from tensorflow.keras.applications.imagenet_utils import preprocess_input
 from sklearn.model_selection import train_test_split
+from keras import backend as K
 
 
 # GOALS:
@@ -55,8 +57,8 @@ def coord_Data_Appointing(dataset, coord_file, w, binary, hasFile):
     for img in imgData_pairs:
         imgName = img[0]
         # Get coords
-        xPos = -1
-        yPos = -1
+        xPos = -w
+        yPos = -w
         if hasFile == True:
             # issue?
             for item in coords[str(int(w))][str(int(img[1][0]))]:
@@ -172,15 +174,15 @@ imageSize = (width, height)
 xTrain, yTrain = dataAdjusting(trainingSet, width, height)
 xValid, yValid = dataAdjusting(validSet, width, height)
 
-#imgGen = ImageDataGenerator(
-#    rotation_range=20,
-#    zoom_range=0.15,
-#    width_shift_range=0.2,
-#    height_shift_range=0.2,
-#    shear_range=0.15,
-#    horizontal_flip=True,
-#    fill_mode="nearest")
-#imgGen.fit(xTrain)
+imgGen = ImageDataGenerator(
+    rotation_range=20,
+    zoom_range=0.15,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.15,
+    horizontal_flip=True,
+    fill_mode="nearest")
+imgGen.fit(xTrain)
 
 #######################################################################
 # CNN Model based from NVIDIA Code with modificiations
@@ -193,13 +195,37 @@ model.add(Conv2D(64, (3, 3), activation='relu'))
 model.add(MaxPool2D(2, 2))
 model.add(Conv2D(128, (3, 3), activation='relu'))
 model.add(MaxPool2D(2, 2))
+model.add(Conv2D(256, (3, 3), activation='relu'))
+model.add(MaxPool2D(2, 2))
 model.add(Flatten())
 model.add(Dense(128, activation='relu'))
+model.add(Dense(256, activation='relu'))
 model.add(Dense(2, activation='linear'))  # Two output neurons for the x and y coordinates
 
 model.compile(optimizer='adam', loss='mean_squared_error')
 model.fit(xTrain, yTrain , validation_data=(xValid, yValid), 
           epochs=10, batch_size=4)
+
+# ADDING A NEW MODEL
+base_model = keras.applications.VGG16(
+    weights='imagenet',
+    input_shape=(width, height, 3),
+    include_top=False
+)
+base_model.trainable = False
+
+inputs = keras.Input(shape=(width, height, 3))
+x = base_model(inputs, training=False)
+x = keras.layers.GlobalAveragePooling2D()(x)
+outputs = keras.layers.Dense(2)(x)
+vgg16_model = keras.Model(inputs, outputs)
+
+vgg16_model.compile(optimizer='adam', loss='mean_squared_error')
+vgg16_model.fit(xTrain, yTrain , validation_data=(xValid, yValid), 
+          epochs=10, batch_size=4)
+
+
+
 
 #model.fit(imgGen.flow(xTrain, yTrain, batch_size=4), validation_data=(xValid, yValid),
 #            epochs=10)
@@ -214,12 +240,34 @@ model.fit(xTrain, yTrain , validation_data=(xValid, yValid),
 #    imgResults = predictions(getImg, width, height, model)
 #    print(f"Results: {imgResults}")
 
-print("\n\n=== === ===\nNOW TESTING WITH WALDO")
+# TESTING WITH TWO MODELS
+
+print("\n\n=== === ===\nNOW TESTING WITH WALDO - Scratch Model")
 imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '18_15_7.jpg')
 imgWALDORes = predictions(imgWPATH, width, height, model)
-print(f"Waldo Results: {imgWALDORes}")
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
 
-print("\n\n=== === ===\nNOW TESTING WITH WALDO")
 imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '11_6_11.jpg')
 imgWALDORes = predictions(imgWPATH, width, height, model)
-print(f"Waldo Results: {imgWALDORes}")
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
+
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '19_0_7.jpg')
+imgWALDORes = predictions(imgWPATH, width, height, model)
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
+
+
+print("\n\n=== === ===\nNOW TESTING WITH WALDO - Prebuilt Model")
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '18_15_7.jpg')
+imgWALDORes = predictions(imgWPATH, width, height, vgg16_model)
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
+
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '11_6_11.jpg')
+imgWALDORes = predictions(imgWPATH, width, height, vgg16_model)
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
+
+imgWPATH = os.path.join('Hey-Waldo-master', '64', 'waldo', '19_0_7.jpg')
+imgWALDORes = predictions(imgWPATH, width, height, vgg16_model)
+print(f"Waldo Results for {imgWPATH}: {imgWALDORes}")
+# Freeing memory just in case
+del model
+K.clear_session()
