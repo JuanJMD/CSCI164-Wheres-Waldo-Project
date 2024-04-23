@@ -12,67 +12,58 @@ import re
 import json
 
 def main():
+    # Obtains the paths to the training and validation data
     train_path = os.path.join('Where Is Wally.v1-wally.coco', 'train')
     val_path = os.path.join('Where Is Wally.v1-wally.coco', 'valid')
+    # Obtain paths for the annotations file
     t_annotations = os.path.join('Where Is Wally.v1-wally.coco', 'train', '_annotations.coco.json')
     v_annotations = os.path.join('Where Is Wally.v1-wally.coco', 'valid', '_annotations.coco.json')
 
-    assert os.path.exists(train_path), f"Training path {train_path} does not exist"
-    assert os.path.exists(val_path), f"Validation path {val_path} does not exist"
-    assert os.path.exists(t_annotations), f"Training annotations file {t_annotations} does not exist"
-    assert os.path.exists(v_annotations), f"Validation annotations file {v_annotations} does not exist"
+    # Checks if the files exist
+    for path in [train_path, val_path, t_annotations, v_annotations]:
+        assert os.path.exists(path), f"Path {path} does not exist"
 
+    # Transform pipeline is established
+    #   - Images are resized to 800x800
     transform = tf.Compose([
         tf.Resize((800, 800)),
         tf.ToTensor()
     ])
 
+    # Training Dataset is created using CocoDetection with the path of training data and annotations
+    #   - Applied to the transform pipeline
     train_dataset = CocoDetection(root = train_path, annFile = t_annotations, transform = transform)
-    for i in range(10):
-        image, target = train_dataset[i]
-        print(f"Image shape: {image.shape}, Target: {target}")
-
+    
+    # Validation Dataset is created using CocoDetection with the path of validation data and annotations
+    #   - Applied to the transform pipeline
     val_dataset = CocoDetection(root = val_path, annFile = v_annotations, transform = transform)
 
+    # Creates dataloader for each dataset
     train_loader = DataLoader(train_dataset, batch_size = 2, shuffle = True, num_workers = 4)
     val_loader = DataLoader(val_dataset, batch_size = 2, shuffle = True, num_workers = 4)
 
-    baseModel = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+    # A R-CNN model is loaded
+    baseModel = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
+    # Since we have no GPU, we default to CPU
     device = torch.device('cpu')
     optimizer = torch.optim.SGD(baseModel.parameters(), lr=0.005, momentum=0.9)
 
-    print(len(train_loader))
-    for images, targets in train_loader:
-        print(len(images), len(targets))
-        #if all(len(target) == 0 for target in targets):
-        #    continue
-        print(f"Number of images: {len(images)}, Number of targets: {len(targets)}")
 
-        images = list(image.to(device) for image in images)
-        #targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-        #targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()} for t in targets]
-        for i in range(len(targets)):
-            bbox = targets[i]["bbox"]
-            x, y, width, height = bbox
-            targets[i]["boxes"] = torch.tensor([int(x), int(y), int(x + width), int(y + height)]).to(device)
-            del targets[i]["bbox"]
-        optimizer.zero_grad()
+    for epoch in range(10):
+        for images, targets in train_loader:
+            images = list(image.to(device) for image in images)
+            print(images.shape())
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            for target in targets:
+                loss_dict = baseModel(images, target)
+                losses = sum(loss for loss in loss_dict.values())
 
-        lost_dictation = baseModel(images, targets)
-        losses= sum(loss for loss in lost_dictation.values())
-        losses.backward()
-        optimizer.step()
+                optimizer.zero_grad()
+                losses.backward()
+                optimizer.step()
 
-    with torch.no_grad():
-        for val_images, val_targets in val_loader:
-            val_images = list(image.to(device) for image in val_images)
-            val_targets = [{k: v.to(device) for k, v in t.items()} for t in val_targets]
 
-            val_loss_dict = baseModel(val_images, val_targets)
-            val_losses = sum(loss for loss in val_loss_dict.values())
-
-    #baseModel = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-
+    # TESTING PHASE
     imagePath = os.path.join('Hey-Waldo-master', '256', 'waldo', '5_0_1.jpg')
 
     loadedImage = Image.open(imagePath)
