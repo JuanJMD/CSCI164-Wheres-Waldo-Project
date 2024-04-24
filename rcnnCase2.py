@@ -1,8 +1,12 @@
 from matplotlib import pyplot as plt
-import torch
 import torchvision
 from torchvision.datasets import CocoDetection
 from torch.utils.data import DataLoader
+
+import torch
+import torch.utils.data
+from torchvision import models, datasets
+from torchvision.transforms import v2
 from torchvision import transforms as tf
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from PIL import Image
@@ -32,11 +36,19 @@ def main():
 
     # Training Dataset is created using CocoDetection with the path of training data and annotations
     #   - Applied to the transform pipeline
-    train_dataset = CocoDetection(root = train_path, annFile = t_annotations, transform = transform)
-    
+    train_dataset = datasets.CocoDetection(root = train_path, annFile = t_annotations)
+
     # Validation Dataset is created using CocoDetection with the path of validation data and annotations
     #   - Applied to the transform pipeline
-    val_dataset = CocoDetection(root = val_path, annFile = v_annotations, transform = transform)
+    val_dataset = datasets.CocoDetection(root = val_path, annFile = v_annotations)
+
+    sample = train_dataset[0]
+    img, target = sample
+
+    print(f"img = {img}, target = {target}")
+
+    print(f"{type(img) = }\n{type(target) = }\n{target.keys() = }")
+    print(f"{type(target['boxes']) = }\n{type(target['labels']) = }\n{type(target['masks']) = }")
 
     # Creates dataloader for each dataset
     train_loader = DataLoader(train_dataset, batch_size = 2, shuffle = True, num_workers = 4)
