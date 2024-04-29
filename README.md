@@ -7,7 +7,7 @@ Final versions of our code can be located in the [final_vers](/final_vers/) fold
     - Contains Python implementation of CNN model
 - [cnn.ipynb](/final_vers/cnn.ipynb)
     - Contains same Python implementation but in a Jupyter Notebook
-- [faster-rcnn-train-val.ipyb](/final_vers/faster-rcnn-train-val.ipynb)
+- [faster-rcnn-train-val.ipynb](/final_vers/faster-rcnn-train-val.ipynb)
     - Contains the implementaion of Faster-Region-Based CNN 
 ### Datasets
 - [Hey Waldo Dataset](/final_vers/Hey-Waldo-master/)
