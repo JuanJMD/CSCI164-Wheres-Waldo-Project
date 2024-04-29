@@ -18,7 +18,7 @@ Final versions of our code can be located in the [final_vers](/final_vers/) fold
 ## Any questions feel free to contact us at:
 - Juan Marquez:
     - Email: juanmark21@mail.fresnostate.edu
-    - Github: [@JuanJMD](@JuanJMD)
+    - Github: [@JuanJMD](https://github.com/JuanJMD)
 - Juan Martinez:
     - Email: junmartinez@mail.fresnostate.edu
-    - Github [@FlamingEmbr](@FlamingEmbr)
+    - Github [@FlamingEmbr](https://github.com/FlamingEmbr)
